@@ -1,3 +1,7 @@
 {% for extension in extensions %}
-	{{ extension.name }} {{ extension.repository }} <br/>
+ {% if extension.repository %}
+	{{ extension.name }} {{ extension.repository }} {{ extension.version }}<br/>
+ {% else %}
+ 	{{ extension.name }} NO update {{ extension.version }}<br/>
+ {% endif %}
 {% endfor %}
