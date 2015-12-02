@@ -7,6 +7,7 @@ var swig = require('swig');
 var request = require('request');
 var url = require('url');
 var AdmZip = require('adm-zip');
+var bodyParser = require('body-parser')
 
 app.engine('html', swig.renderFile);
 app.set('view engine', 'html');
@@ -14,6 +15,10 @@ app.set('views', __dirname + '/views');
 app.set('view cache', false);
 swig.setDefaults({ cache: false });
 app.use(express.static(__dirname + '/static'));
+app.use( bodyParser.json() );
+app.use(bodyParser.urlencoded({
+  extended: true
+})); 
 
 var options = {
 	rejectUnauthorized: false,
@@ -40,7 +45,7 @@ app.get('/extensions', function (req, res) {
 		resp.on("data", function (chunk) {
 			var ext = JSON.parse(chunk.toString());
 			async.each(ext, function (file, callback) {
-				console.log(ext)
+				//console.log(ext)
 				//data.push( ext )
 				callback();
 
@@ -91,50 +96,54 @@ app.get('/update', function (req, res) {
 
 })
 
-app.get('/getrelease', function (req, res) {
- 
-	var options = {
-		hostname: 'api.github.com',
-		path: '/repos/countnazgul/QS-backup-and-restore-app/releases/latest',
-		method: 'GET',
-		headers: {
- 			'user-agent': 'Mozilla/5.0'
-		}
-	};
-
-	callback = function(response) {
-		var str = '';	
-		response.on('data', function (chunk) {
-			str += chunk;
+app.post('/versioncheck', function(req, res) {
+	var repo = req.body.repo; 
+	repo = repo.replace('.git', '');
+	repo = repo.replace('github.com', 'api.github.com/repos') + '/releases/latest';
+	var version = req.body.version;
+	console.log( repo + ' ' + version )		
+	var requestOptions = { url: repo, headers: {'User-Agent': 'request' } };
+							
+		request(requestOptions, function (error, response, release) {
+			release = JSON.parse(release)
+			tag = release.tag_name;
+			res.send(release)			
 		});
-		
-		response.on('end', function () {
-			str = JSON.parse(str.toString())
+	
+})
+
+app.post('/getrelease', function (req, res) {
+
+	//var repo = 'https://github.com/countnazgul/QS-backup-and-restore-app.git';
+	var repo = req.body.repo;
+	    repo = repo.replace('.git', '');
+	    repo = repo.replace('github.com', 'api.github.com/repos') + '/releases/latest';
+
+	var requestOptions = { url: repo, headers: {'User-Agent': 'request' } };
+		request(requestOptions, function (error, response, release) {
+			var str = '';						
+			    str = JSON.parse(response.body.toString());
 			
- 			var p = 'https://github.com/countnazgul/QS-backup-and-restore-app/releases/download/v0.8.2/backup-and-restore.zip';
+ 			var p = str.assets[0].browser_download_url;
 			var file_name = url.parse(p).pathname.split('/').pop();	
-			var file = fs.createWriteStream("c:\\" + file_name);
+			var file = fs.createWriteStream("./temp/" + file_name);
 			
 			file.on('finish', function() {
-				res.send('done')
+				readZip("./temp/" + file_name,  function() {
+					res.send('done')
+				})
 			})
 			request
-			.get(p)
-			.on('response', function(response) {
-				console.log(response.statusCode) // 200
-				console.log(response.headers['content-type']) // 'image/png'
-			})
-			.pipe( file )							
-		
-		});
-	}	
-		
-	https.get(options, callback).end();
-
+			  .get(p)
+			  .on('response', function(response) {
+			   })
+			  .pipe( file )							
+	})	
 });
 
-app.get('/readzip', function (req, res) {
-var zip = new AdmZip("c:\\backup-and-restore.zip");
+function readZip(filename, callback) {
+//app.get('/readzip', function (req, res) {
+var zip = new AdmZip(filename);
     var zipEntries = zip.getEntries(); // an array of ZipEntry records
 
 	async.each(zipEntries, function (zipEntry, callback) {
@@ -142,36 +151,23 @@ var zip = new AdmZip("c:\\backup-and-restore.zip");
 			name = zipEntry.entryName
 			name = name.substr(name.indexOf('/') + 1)
 			name = name.replace(/\//g, '//');
-			updateFile(name, zipEntry.getData().toString('utf8'), function() {
-				console.log(name)
-				callback();				
+			console.log(name)
+			updateFile(name, zipEntry.getData().toString('utf8'), function() {				
+				fs.unlink(filename, function() {
+					callback();	
+				})
+								
 			})
 		} else {
 			callback();	
 		}
 		
 	}, function (err) {
-		res.send('done');
+		callback();
 		
 	});
-
-
-    // zipEntries.forEach(function(zipEntry) {
-	// 	//console.log(zipEntry.entryName)
-	// 	if( !zipEntry.isDirectory ) {
-	// 		name = zipEntry.entryName
-	// 		name = name.substr(name.indexOf('/') + 1)
-	// 		name = name.replace(/\//g, '//');
-	// 		updateFile(name, zipEntry.getData().toString('utf8'), function() {
-	// 			console.log(name)				
-	// 		})
-			
-			
-	// 	}
-	// 	//data = zipEntry.getData()		
-	// 	//console.log(data.toString('utf8'));	
-	// })	
-});
+//});
+}
 
 function updateFile(fileName, fileContent, callback) {
 	var extName = encodeURIComponent('backup-and-restore');
@@ -195,7 +191,7 @@ function updateFile(fileName, fileContent, callback) {
 
 	var r = https.request(options, function (resp) {
 		resp.on("data", function (chunk) {
-			console.log(chunk.toString())
+			//console.log(chunk.toString())
 			//res.send(chunk.toString())
 			callback('');
 		});

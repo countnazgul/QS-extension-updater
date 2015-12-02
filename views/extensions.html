@@ -1,7 +1,23 @@
-{% for extension in extensions %}
- {% if extension.repository %}
-	{{ extension.name }} {{ extension.repository }} {{ extension.version }}<br/>
- {% else %}
- 	{{ extension.name }} NO update {{ extension.version }}<br/>
- {% endif %}
-{% endfor %}
+<html>
+	<script src="js/jquery-2.1.4.min.js"></script>
+	<script src="js/script.js"></script>
+<head>
+</head>
+
+<body>
+	<ul>
+	{% for extension in extensions %} 
+		{% if extension.repository %}
+			{% if extension.version %}  
+				<li class="active" data-repo="{{ extension.repository }}" data-version="{{ extension.version }}">{{ extension.name }} ({{ extension.version}}) <div id='test'> trrrrr</div> </li>
+			{% else %}
+				<li  class="notactive"> {{ extension.name }} No version provided {{ extension.version }}</li>
+			{% endif %}	 
+		{% else %} 
+			<li  class="notactive"> {{ extension.name }} ({{ extension.version }}) No repo provided</li> 
+		{% endif %} 
+	{% endfor %}
+	</ul>
+</body>
+
+</html>
